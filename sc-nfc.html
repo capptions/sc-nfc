@@ -1,0 +1,99 @@
+<!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE
+The complete set of authors may be found at http://polymer.github.io/AUTHORS
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS
+-->
+<link rel="import" href="../polymer/polymer.html" />
+
+<dom-module id="sc-nfc">
+  <template>
+  </template>
+</dom-module>
+
+<script>
+(function () {
+
+  window.Polymer({
+    is: 'sc-nfc',
+
+    properties: {
+      /**
+       * A boolean indicating whether nfc is available or not
+       *
+       * @default ''
+       */
+      available: {
+        type: Boolean,
+        value: false,
+        readOnly: true,
+        notify: true
+      },
+
+      /**
+       * A boolean to enable logs to be written to `console.log`
+       *
+       * @default false
+       */
+      debug: {
+        type: Boolean,
+        value: false
+      }
+    },
+
+    log: function () {
+      return this.debug && window.console.log.apply(window.console, arguments);
+    },
+
+    ready: function () {
+      if (!window.nfc) {
+        return this.log('The NFC plugin is not available');
+      }
+
+      this.library = {
+        nfc: window.nfc,
+        ndef: window.ndef,
+        util: window.util,
+        fireNfcTagEvent: window.fireNfcTagEvent
+      };
+
+      window.nfc.enabled(function () {
+        this.log('NFC enabled');
+        this._setAvailable(true);
+        this.fire('available');
+      }.bind(this), function (reason) {
+        if (reason === 'NFC_DISABLED') {
+          return this.log('NFC is disabled on this device');
+        }
+
+        this.log('NFC is not available on this device');
+      }.bind(this));
+    },
+
+    listen: function (fn, stop) {
+      if (!window.nfc || !this.available) {
+        return this.log('NFC not initialized or available');
+      }
+
+      this._callback = this._callback || function (e) {
+        this.log('NFC event received', e.tag);
+        this.fire('exchange', e.tag);
+      }.bind(this);
+
+      var name = stop ? 'removeNdefListener' : 'addNdefListener';
+      window.nfc[name](this._callback, function () {
+        this.log('Listening', stop ? 'stopped' : 'started', 'successfully');
+        return fn && fn();
+      }.bind(this), function (e) {
+        this.log('Listening', stop ? 'stopped' : 'started', 'failed', e);
+        return fn && fn('failed');
+      }.bind(this));
+    }
+
+  });
+
+})();
+</script>

@@ -1,0 +1,29 @@
+{
+  "name": "sc-nfc",
+  "description": "Polymer 1.0 element that wraps around phonegap-nfc to expose nfc/rfid abilities",
+  "authors": [
+    "Safety Changer"
+  ],
+  "keywords": [
+    "web-components",
+    "web-component",
+    "polymer",
+    "rfid",
+    "nfc",
+    "near field communication",
+    "phonegap",
+    "cordova"
+  ],
+  "main": "sc-nfc.html",
+  "ignore": {},
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/safetychanger/sc-nfc"
+  },
+  "license": "http://polymer.github.io/LICENSE.txt",
+  "homepage": "https://github.com/safetychanger/sc-nfc",
+  "dependencies": {
+    "polymer": "latest"
+  }
+}
