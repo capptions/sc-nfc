@@ -84,7 +84,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       }.bind(this);
 
       var name = stop ? 'removeNdefListener' : 'addNdefListener';
-      window.nfc[name](this._callback, function () {
+      return window.nfc[name] && window.nfc[name](this._callback, function () {
         this.log('Listening', stop ? 'stopped' : 'started', 'successfully');
         return fn && fn();
       }.bind(this), function (e) {
