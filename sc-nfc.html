@@ -53,18 +53,27 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         return this.log('The NFC plugin is not available');
       }
 
-      this.library = {
+      this.library = this.library || {
         nfc: window.nfc,
         ndef: window.ndef,
         util: window.util,
         fireNfcTagEvent: window.fireNfcTagEvent
       };
 
+      var initialize = this.initialize.bind(this);
+      document.removeEventListener('resume', initialize);
+      document.addEventListener('resume', initialize, false);
+      initialize();
+    },
+
+    initialize: function () {
       window.nfc.enabled(function () {
-        this.log('NFC enabled');
         this._setAvailable(true);
-        this.fire('available');
+        this.log('NFC enabled');
+        this.fire('available', true);
       }.bind(this), function (reason) {
+        this._setAvailable(false);
+        this.fire('available', false);
         if (reason === 'NFC_DISABLED') {
           return this.log('NFC is disabled on this device');
         }
