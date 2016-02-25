@@ -85,24 +85,33 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     initialize: function () {
       this.library.nfc.enabled(function () {
         this._setEnabled(true);
-        this.log('NFC enabled');
+        this.log('NFC is enabled');
         this.fire('enabled', true);
       }.bind(this), function (reason) {
         this._setEnabled(false);
         this.fire('enabled', false);
         if (reason === 'NFC_DISABLED') {
-          return this.log('NFC is disabled on this device');
+          return this.log('NFC is disabled');
         }
 
         this._setAvailable(false);
-        return this.log('NFC is not available on this device');
+        return this.log('NFC is not available');
       }.bind(this));
     },
 
     listen: function (fn, stop) {
       if (!this.available || !this.enabled) {
-        return this.log('NFC not available or not enabled');
+        return this.log('NFC is not available or not enabled');
       }
+
+      stop = !!stop;
+      this._listening = !!this._listening;
+
+      if (stop !== this._listening) {
+        return;
+      }
+
+      this._listening = !stop;
 
       this._callback = this._callback || function (e) {
         this.log('NFC event received', e.tag);
@@ -110,13 +119,17 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       }.bind(this);
 
       var name = stop ? 'removeNdefListener' : 'addNdefListener';
-      return this.library.nfc[name] && this.library.nfc[name](this._callback, function () {
+      this.library.nfc[name](this._callback, function () {
         this.log('Listening', stop ? 'stopped' : 'started', 'successfully');
         return fn && fn();
       }.bind(this), function (e) {
         this.log('Listening', stop ? 'stopped' : 'started', 'failed', e);
         return fn && fn('failed');
       }.bind(this));
+
+      // Bogus listener for https://github.com/chariotsolutions/phonegap-nfc/issues/217
+      name = stop ? 'removeMimeTypeListener' : 'addMimeTypeListener';
+      this.library.nfc[name]('text/bogus', this._callback, function () {}, function () {});
     },
 
     showSettings: function () {
