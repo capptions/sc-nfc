@@ -34,6 +34,18 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       },
 
       /**
+       * A boolean indicating whether nfc is enabled or not
+       *
+       * @default ''
+       */
+      enabled: {
+        type: Boolean,
+        value: false,
+        readOnly: true,
+        notify: true
+      },
+
+      /**
        * A boolean to enable logs to be written to `console.log`
        *
        * @default false
@@ -50,8 +62,12 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 
     ready: function () {
       if (!window.nfc || !window.nfc.enabled) {
+        this._setAvailable(false);
+        this._setEnabled(false);
         return this.log('The NFC plugin is not available');
       }
+
+      this._setAvailable(true);
 
       this.library = this.library || {
         nfc: window.nfc,
@@ -67,24 +83,25 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     },
 
     initialize: function () {
-      window.nfc.enabled(function () {
-        this._setAvailable(true);
+      this.library.nfc.enabled(function () {
+        this._setEnabled(true);
         this.log('NFC enabled');
-        this.fire('available', true);
+        this.fire('enabled', true);
       }.bind(this), function (reason) {
-        this._setAvailable(false);
-        this.fire('available', false);
+        this._setEnabled(false);
+        this.fire('enabled', false);
         if (reason === 'NFC_DISABLED') {
           return this.log('NFC is disabled on this device');
         }
 
-        this.log('NFC is not available on this device');
+        this._setAvailable(false);
+        return this.log('NFC is not available on this device');
       }.bind(this));
     },
 
     listen: function (fn, stop) {
-      if (!window.nfc || !this.available) {
-        return this.log('NFC not initialized or available');
+      if (!this.available || !this.enabled) {
+        return this.log('NFC not available or not enabled');
       }
 
       this._callback = this._callback || function (e) {
@@ -93,13 +110,17 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       }.bind(this);
 
       var name = stop ? 'removeNdefListener' : 'addNdefListener';
-      return window.nfc[name] && window.nfc[name](this._callback, function () {
+      return this.library.nfc[name] && this.library.nfc[name](this._callback, function () {
         this.log('Listening', stop ? 'stopped' : 'started', 'successfully');
         return fn && fn();
       }.bind(this), function (e) {
         this.log('Listening', stop ? 'stopped' : 'started', 'failed', e);
         return fn && fn('failed');
       }.bind(this));
+    },
+
+    showSettings: function () {
+      return this.library && this.library.nfc.showSettings();
     }
 
   });
