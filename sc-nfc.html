@@ -118,18 +118,32 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         this.fire('exchange', e.tag);
       }.bind(this);
 
-      var name = stop ? 'removeNdefListener' : 'addNdefListener';
-      this.library.nfc[name](this._callback, function () {
-        this.log('Listening', stop ? 'stopped' : 'started', 'successfully');
-        return fn && fn();
-      }.bind(this), function (e) {
-        this.log('Listening', stop ? 'stopped' : 'started', 'failed', e);
-        return fn && fn('failed');
-      }.bind(this));
+      var listen = function () {
+        var name = stop ? 'removeNdefListener' : 'addNdefListener';
+        this.library.nfc[name](this._callback, function () {
+          this.log('Listening', stop ? 'stopped' : 'started', 'successfully');
+          return fn && fn();
+        }.bind(this), function (e) {
+          this.log('Listening', stop ? 'stopped' : 'started', 'failed', e);
+          return fn && fn('failed');
+        }.bind(this));
 
-      // Bogus listener for https://github.com/chariotsolutions/phonegap-nfc/issues/217
-      name = stop ? 'removeMimeTypeListener' : 'addMimeTypeListener';
-      this.library.nfc[name]('text/bogus', this._callback, function () {}, function () {});
+        if (window.cordova && window.cordova.platformId === 'android') {
+          // Bogus listener for https://github.com/chariotsolutions/phonegap-nfc/issues/217
+          name = stop ? 'removeMimeTypeListener' : 'addMimeTypeListener';
+          this.library.nfc[name]('text/bogus', this._callback, function () {}, function () {});
+        }
+      }.bind(this);
+
+      if (window.cordova && window.cordova.platformId === 'ios') {
+        var name = stop ? 'invalidateSession' : 'beginSession';
+        return this.library.nfc[name](listen, function (e) {
+          this.log('Session', stop ? 'invalidated' : 'begun', 'failed');
+          return fn && fn('failed');
+        }.bind(this));
+      }
+
+      return listen();
     },
 
     showSettings: function () {
