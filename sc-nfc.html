@@ -17,6 +17,8 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 <script>
 (function () {
 
+  var NOOP = function () {};
+
   window.Polymer({
     is: 'sc-nfc',
 
@@ -104,46 +106,64 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         return this.log('NFC is not available or not enabled');
       }
 
+      fn = fn || NOOP;
       stop = !!stop;
-      this._listening = !!this._listening;
-
-      if (stop !== this._listening) {
-        return;
-      }
-
-      this._listening = !stop;
 
       this._callback = this._callback || function (e) {
         this.log('NFC event received', e.tag);
         this.fire('exchange', e.tag);
       }.bind(this);
 
-      var listen = function () {
-        var name = stop ? 'removeNdefListener' : 'addNdefListener';
-        this.library.nfc[name](this._callback, function () {
-          this.log('Listening', stop ? 'stopped' : 'started', 'successfully');
-          return fn && fn();
-        }.bind(this), function (e) {
-          this.log('Listening', stop ? 'stopped' : 'started', 'failed', e);
-          return fn && fn('failed');
-        }.bind(this));
-
-        if (window.cordova && window.cordova.platformId === 'android') {
-          // Bogus listener for https://github.com/chariotsolutions/phonegap-nfc/issues/217
-          name = stop ? 'removeMimeTypeListener' : 'addMimeTypeListener';
-          this.library.nfc[name]('text/bogus', this._callback, function () {}, function () {});
-        }
-      }.bind(this);
-
       if (window.cordova && window.cordova.platformId === 'ios') {
-        var name = stop ? 'invalidateSession' : 'beginSession';
-        return this.library.nfc[name](listen, function (e) {
-          this.log('Session', stop ? 'invalidated' : 'begun', 'failed');
-          return fn && fn('failed');
-        }.bind(this));
+        var handler = function () {
+          if (stop) {
+            return fn();
+          }
+
+          return this.library.nfc.beginSession(function () {
+            this.log('Session begin success');
+            return this.setListener(fn, stop);
+          }.bind(this), function (e) {
+            this.log('Session begin failed', e);
+            return fn('failed');
+          }.bind(this));
+        }.bind(this);
+
+        this.library.nfc.invalidateSession(handler, handler);
       }
 
-      return listen();
+      return this.setListener(fn, stop);
+    },
+
+    setListener: function (fn, stop) {
+      var handler = function () {
+        if (stop) {
+          this.log('Listening stopped successfully');
+          return fn();
+        }
+
+        this.library.nfc.addNdefListener(this._callback, function () {
+          this.log('Listening started successfully');
+          return fn();
+        }.bind(this), function (e) {
+          this.log('Listening start failed', e);
+          return fn('failed');
+        }.bind(this));
+      }.bind(this);
+
+      this.library.nfc.removeNdefListener(this._callback, handler, handler);
+
+      if (window.cordova && window.cordova.platformId === 'android') {
+        var bogus = function () {
+          if (stop) {
+            return;
+          }
+
+          this.library.nfc.addMimeTypeListener('text/bogus', this._callback, NOOP, NOOP);
+        }.bind(this);
+
+        this.library.nfc.removeMimeTypeListener('text/bogus', this._callback, bogus, bogus);
+      }
     },
 
     showSettings: function () {
