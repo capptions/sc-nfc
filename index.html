@@ -14,12 +14,12 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <script src="../webcomponentsjs/webcomponents-lite.js"></script>
-  <link rel="import" href="sc-autolinker.html">
+  <link rel="import" href="sc-nfc.html">
 
 </head>
 <body>
 
-  <sc-autolinker>Hello world, this is a link that you can actually click on: http://www.google.com</sc-autolinker>
+  <sc-nfc id="nfc" on-exchange="nfcExchanged" on-enabled="nfcListen" enabled="{{nfcEnabled}}" available="{{nfcAvailable}}"></sc-nfc>
 
 </body>
 </html>

@@ -26,7 +26,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       /**
        * A boolean indicating whether nfc is available or not
        *
-       * @default ''
+       * @default false
        */
       available: {
         type: Boolean,
@@ -38,7 +38,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       /**
        * A boolean indicating whether nfc is enabled or not
        *
-       * @default ''
+       * @default false
        */
       enabled: {
         type: Boolean,
@@ -63,19 +63,17 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     },
 
     ready: function () {
-      if (!window.nfc || !window.nfc.enabled) {
+      // Check if Capacitor NFC plugin is available
+      if (!window.Capacitor || !window.Capacitor.Plugins || !window.Capacitor.Plugins.NFC) {
         this._setAvailable(false);
         this._setEnabled(false);
-        return this.log('The NFC plugin is not available');
+        return this.log('The Capacitor NFC plugin is not available');
       }
 
       this._setAvailable(true);
 
       this.library = this.library || {
-        nfc: window.nfc,
-        ndef: window.ndef,
-        util: window.util,
-        fireNfcTagEvent: window.fireNfcTagEvent
+        nfc: window.Capacitor.Plugins.NFC
       };
 
       var initialize = this.initialize.bind(this);
@@ -85,19 +83,22 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     },
 
     initialize: function () {
-      this.library.nfc.enabled(function () {
-        this._setEnabled(true);
-        this.log('NFC is enabled');
-        this.fire('enabled', true);
-      }.bind(this), function (reason) {
-        this._setEnabled(false);
-        this.fire('enabled', false);
-        if (reason === 'NFC_DISABLED') {
-          return this.log('NFC is disabled');
+      // Check if NFC is supported using the correct API
+      this.library.nfc.isSupported().then(function (result) {
+        if (result.supported) {
+          this._setEnabled(true);
+          this.log('NFC is supported and enabled');
+          this.fire('enabled', true);
+        } else {
+          this._setEnabled(false);
+          this.log('NFC is not supported');
+          this.fire('enabled', false);
         }
-
+      }.bind(this)).catch(function (error) {
+        this._setEnabled(false);
         this._setAvailable(false);
-        return this.log('NFC is not available');
+        this.fire('enabled', false);
+        this.log('NFC is not available:', error);
       }.bind(this));
     },
 
@@ -109,67 +110,61 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       fn = fn || NOOP;
       stop = !!stop;
 
-      this._callback = this._callback || function (e) {
-        this.log('NFC event received', e.tag);
-        this.fire('exchange', e.tag);
+      this._callback = this._callback || function (tag) {
+        this.log('NFC event received', tag);
+        this.fire('exchange', tag);
       }.bind(this);
 
-      if (window.cordova && window.cordova.platformId === 'ios') {
-        var handler = function () {
-          if (stop) {
-            return fn();
-          }
-
-          return this.library.nfc.beginSession(function () {
-            this.log('Session begin success');
-            return this.setListener(fn, stop);
-          }.bind(this), function (e) {
-            this.log('Session begin failed', e);
-            return fn('failed');
-          }.bind(this));
-        }.bind(this);
-
-        this.library.nfc.invalidateSession(handler, handler);
+      if (stop) {
+        return this.stopListening(fn);
       }
 
-      return this.setListener(fn, stop);
+      return this.startListening(fn);
     },
 
-    setListener: function (fn, stop) {
-      var handler = function () {
-        if (stop) {
-          this.log('Listening stopped successfully');
-          return fn();
-        }
-
-        this.library.nfc.addNdefListener(this._callback, function () {
-          this.log('Listening started successfully');
-          return fn();
-        }.bind(this), function (e) {
-          this.log('Listening start failed', e);
-          return fn('failed');
+    startListening: function (fn) {
+      try {
+        // Set up listeners for NFC events using Capacitor 7 API
+        this.library.nfc.addListener('nfcTag', function (data) {
+          this.log('NFC tag detected:', data);
+          this._callback(data);
+          // Stop listening after successful detection
+          this.stopListening();
         }.bind(this));
-      }.bind(this);
 
-      this.library.nfc.removeNdefListener(this._callback, handler, handler);
+        this.library.nfc.addListener('nfcError', function (error) {
+          this.log('NFC error:', error);
+          // Stop listening after error
+          this.stopListening();
+        }.bind(this));
 
-      if (window.cordova && window.cordova.platformId === 'android') {
-        var bogus = function () {
-          if (stop) {
-            return;
-          }
-
-          this.library.nfc.addMimeTypeListener('text/bogus', this._callback, NOOP, NOOP);
-        }.bind(this);
-
-        this.library.nfc.removeMimeTypeListener('text/bogus', this._callback, bogus, bogus);
+        // Start NFC scanning
+        this.library.nfc.startScan().then(function () {
+          this.log('NFC scanning started');
+          this.log('Listening started successfully');
+          fn && fn();
+        }.bind(this)).catch(function (error) {
+          this.log('Failed to start NFC scanning:', error);
+          fn && fn('failed');
+        }.bind(this));
+      } catch (error) {
+        this.log('Listening start failed', error);
+        fn && fn('failed');
       }
     },
 
-    showSettings: function () {
-      return this.library && this.library.nfc.showSettings();
-    }
+    stopListening: function (fn) {
+      try {
+        // Remove all listeners using Capacitor 7 API
+        this.library.nfc.removeAllListeners();
 
+        this.log('Listening stopped successfully');
+        fn && fn();
+      } catch (error) {
+        this.log('Listening stop failed', error);
+        fn && fn('failed');
+      }
+    }
   });
 
 })();
